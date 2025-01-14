@@ -1,0 +1,19 @@
+#
+# A mixture of AlCl3 and base
+#
+
+tolerance 2.0
+filetype xyz
+output system.xyz
+movebadrandom
+
+structure ../InputStructures/AlCl3.xyz 
+  number 22
+  inside box 0. 0. 0. 15.12045 15.12045 15.12045
+end structure
+
+structure ../InputStructures/Urea.xyz
+  number 17
+  inside box 0. 0. 0. 15.12045 15.12045 15.12045
+end structure
+

@@ -1,0 +1,68 @@
+! AIMD setup for aluminum chloride in organic solvent
+! Ref: https://www.ipcms.fr/wp-content/uploads/2023/09/cp2k.pdf
+
+
+! System definitions
+@SET SYSNAME          UREA_MRAT_15
+@SET RTYPE            GEO_OPT 
+@SET CPUTIME          10000
+@SET RESTART          FALSE
+
+! Files options
+@SET BASISFILE        BASIS_MOLOPT
+@SET PSEUDOFILE       GTH_POTENTIALS
+@SET WAVEFILE         UREA_MRAT_15-RESTART.wfn
+@SET RESTARTFILE      UREA_MRAT_15-1.restart
+
+! DFT Calculation options
+@SET CUTOFF           300
+@SET GRIDS            5
+@SET SCF_NCYCLES      500
+@SET SCF_OCYCLES      100
+@SET SCF_CONV         1E-6
+@IF ( ${RESTART} == TRUE )
+  @SET SCF_GUESS      RESTART
+@ENDIF
+@IF ( ${RESTART} == FALSE )
+  @SET SCF_GUESS ATOMIC
+@ENDIF
+
+! Minimizer algorithm for SCF: BROYDEN, CG, or DIIS
+@SET SCF_MINI CG
+@SET FUNCTIONAL PBE
+
+! Geometry optimization options - min algo for geometry opt
+@SET GEO_MINI CG
+@SET GEO_MAXS 10000
+
+! Molecular dynamics options
+@SET MD_ENS NVT
+@SET MD_STEPS 10000
+@SET MD_DT 1.0
+@SET MD_TEMP 333
+
+! Output options
+@SET OUT_FORM XYZ
+@SET OUT_UNIT angstrom
+@SET OUT_STEPS 1 
+
+! GLOBAL section
+&GLOBAL
+  PROJECT ${SYSNAME}
+  RUN_TYPE ${RTYPE}
+  PRINT_LEVEL MEDIUM
+  WALLTIME ${CPUTIME}
+&END GLOBAL
+
+! Optional EXT_RESTART section
+@IF ( ${RESTART} == TRUE )
+  @INCLUDE restart.inc
+@ENDIF
+
+! FORCE_EVAL section include file
+@INCLUDE forces.inc
+
+! MOTION section
+@IF ( ${RTYPE} /= ENERGY_FORCE )
+  @INCLUDE motion.inc
+@ENDIF
