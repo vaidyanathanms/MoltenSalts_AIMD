@@ -3,16 +3,16 @@
 
 
 ! System definitions
-@SET SYSNAME          UREA_MRAT_15
+@SET SYSNAME          ALCL3_MRAT_14
 @SET RTYPE            GEO_OPT 
-@SET CPUTIME          10000
+@SET CPUTIME          30000
 @SET RESTART          FALSE
 
 ! Files options
 @SET BASISFILE        BASIS_MOLOPT
 @SET PSEUDOFILE       GTH_POTENTIALS
-@SET WAVEFILE         UREA_MRAT_15-RESTART.wfn
-@SET RESTARTFILE      UREA_MRAT_15-1.restart
+@SET WAVEFILE         ALCL3_MRAT_14-RESTART.wfn
+@SET RESTARTFILE      ALCL3_MRAT_14-1.restart
 
 ! DFT Calculation options
 @SET CUTOFF           300
