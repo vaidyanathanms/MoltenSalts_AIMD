@@ -30,7 +30,7 @@
           
           ! Parameters of the Nosé-Hoover chain thermostat
           &NOSE
-            TIMECON 1000.
+            TIMECON 100.
             LENGTH 3
             YOSHIDA 3
             MTS 2
@@ -49,14 +49,14 @@
     @ENDIF
 
     @IF ( ${RTYPE} == GEO_OPT ) ! Running geometry optimization
-      MINIMIZER ${GEO_MINI}
+      OPTIMIZER ${GEO_MINI}
       MAX_ITER ${GEO_MAXS}
     @ENDIF
   &END ${RTYPE}
   
   ! Setting up how to print results
   &PRINT
-    
+   
     &RESTART
       LOG_PRINT_KEY T
       &EACH

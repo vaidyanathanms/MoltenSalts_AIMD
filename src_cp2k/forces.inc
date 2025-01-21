@@ -9,6 +9,11 @@
     &END
   &END
 
+  ! For NPT simulations include stress tensor
+  @IF ( ${MD_ENS} == NPT_I )
+    STRESS_TENSOR ANALYTICAL
+  @ENDIF
+
   ! For first principles calculation the method is always Quickstep
   ! which is the name of the method used to expand the wave-function in CP2K
 
@@ -18,6 +23,7 @@
     ! The files that will be used in the calculation
     BASIS_SET_FILE_NAME ${BASISFILE}
     POTENTIAL_FILE_NAME ${PSEUDOFILE}
+    
     ! If we restart a calculation then we use the previous wave-function
     @IF ( ${RESTART} == TRUE )
       WFN_RESTART_FILE_NAME ${WAVEFILE}
@@ -51,10 +57,6 @@
 
   &END DFT
 
-  ! For NPT simulations include stress tensor
-  @IF ( ${MD_ENS} == NPT_I )
-    STRESS_TENSOR ANALYTICAL
-  @ENDIF
 
   ! The FORCE_EVAL also requires a SUBSYS section to describe the system
   ! the SUBSYS section is inserted using an include file:i

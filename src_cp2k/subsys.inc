@@ -2,17 +2,22 @@
 
 &SUBSYS
 
-  &CELL
-    ABC [angstrom] 14.69 14.69 16.69 ! => Simulation box parameters
-    PERIODIC XYZ ! => Periodicity of the system
-  &END CELL
+  ! Read from main file or EXT_RESTART section
+  @IF ( ${RESTART} == FALSE )
   
-  &TOPOLOGY
-    ! From XYZ file coordinates are always Cartesian and in angstrom
-    COORDINATE XYZ
-    ! Name of the file that contains the atomic coordinates
-    COORD_FILE_NAME system.xyz
-  &END TOPOLOGY
+    &CELL
+      ABC [angstrom] 17.1972 17.1972 17.1972 ! => Simulation box parameters
+      PERIODIC XYZ ! => Periodicity of the system
+    &END CELL
+  
+    &TOPOLOGY
+      ! From XYZ file coordinates are always Cartesian and in angstrom
+      COORDINATE XYZ
+      ! Name of the file that contains the atomic coordinates
+      COORD_FILE_NAME system.xyz
+    &END TOPOLOGY
+  
+  @ENDIF
   
   &KIND Al ! => For each species a KIND section is created
     BASIS_SET DZVP-MOLOPT-SR-GTH ! => Very tricky section, thorough tests
