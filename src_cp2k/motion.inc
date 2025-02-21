@@ -56,7 +56,14 @@
   
   ! Setting up how to print results
   &PRINT
-   
+    
+    &CELL
+      &EACH
+        ${RTYPE} ${OUT_STEPS}
+      &END EACH
+      ADD_LAST NUMERIC
+    &END CELL
+
     &RESTART
       LOG_PRINT_KEY T
       &EACH
