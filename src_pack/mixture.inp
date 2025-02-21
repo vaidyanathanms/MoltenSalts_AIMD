@@ -7,11 +7,13 @@ filetype xyz
 output system.xyz
 movebadrandom
 
+# Input AlCl3 structure
 structure ../InputStructures/AlCl3.xyz 
   number 22
   inside box 0. 0. 0. 15.12045 15.12045 15.12045
 end structure
 
+# Input base structure
 structure ../InputStructures/Urea.xyz
   number 17
   inside box 0. 0. 0. 15.12045 15.12045 15.12045
