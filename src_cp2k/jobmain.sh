@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --job-name AcONH2_1.4
+#SBATCH --job-name AcONH2_1.7
 #SBATCH --nodes=4
 #SBATCH --tasks-per-node=16
 #SBATCH --cpus-per-task=3
 #SBATCH --mem-per-cpu=4G
-#SBATCH --time=10:30:00
+#SBATCH --time=36:30:00
 #SBATCH --account=iontransport
 #SBATCH --error=std.err_%j
 #SBATCH --output=std.out_%j
@@ -28,3 +28,5 @@ wait
 srun cp2k.psmp -i nvt_main.inp -o out_nvt.log
 wait
 srun cp2k.psmp -i npt_main.inp -o out_npt.log
+wait
+srun cp2k.psmp -i nvt_prod.inp -o out_nvt_prod.log
