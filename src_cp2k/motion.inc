@@ -76,6 +76,7 @@
       LOG_PRINT_KEY T
       FORMAT ${OUT_FORM}
       UNIT ${OUT_UNIT}
+      FILENAME ./${TRAJFILE}
       &EACH
         ${RTYPE} ${OUT_STEPS} ! Trajectory files will be printed every ${OUT_STEPS} steps
       &END EACH
@@ -84,7 +85,6 @@
 
     @IF ( ${RTYPE} == MD )
       &VELOCITIES
-        LOG_PRINT_KEY T
         FORMAT ${OUT_FORM}
         UNIT ${OUT_UNIT}
         &EACH

@@ -3,7 +3,7 @@
 
 
 ! System definitions
-@SET SYSNAME          ALCL3_MRAT_14
+@SET SYSNAME          ALCL3_MRAT_17
 @SET RTYPE            MD
 @SET CPUTIME          36000
 @SET RESTART          TRUE
@@ -11,11 +11,12 @@
 ! Files options
 @SET BASISFILE        BASIS_MOLOPT
 @SET PSEUDOFILE       GTH_POTENTIALS
-@SET WAVEFILE         ALCL3_MRAT_14-RESTART.wfn
-@SET RESTARTFILE      ALCL3_MRAT_14-1.restart
+@SET WAVEFILE         ALCL3_MRAT_17-RESTART.wfn
+@SET RESTARTFILE      ALCL3_MRAT_17-1.restart
+@SET TRAJFILE         traj_nvtmain_17
 
 ! DFT Calculation options
-@SET CUTOFF           400
+@SET CUTOFF           1000
 @SET GRIDS            5
 @SET SCF_NCYCLES      500
 @SET SCF_OCYCLES      100
@@ -39,7 +40,7 @@
 @SET MD_ENS NVT
 @SET MD_STEPS 3000
 @SET MD_DT 1.0
-@SET MD_TEMP 333
+@SET MD_TEMP 323
 
 ! Output options
 @SET OUT_FORM XYZ
