@@ -25,7 +25,7 @@ MODULE PARAMS_CP2K
   INTEGER :: box_from_file_flag, box_type_flag
   INTEGER :: rdfcalc_flag
   INTEGER :: catan_neighcalc_flag
-  INTEGER :: clust_calc_flag
+  INTEGER :: clust_calc_flag, clust_time_flag
   INTEGER :: ion_dynflag, cion_dynflag
   INTEGER :: catan_autocfflag, catpol_autocfflag
   INTEGER :: name_to_type_map_flag
@@ -39,6 +39,7 @@ MODULE PARAMS_CP2K
   INTEGER, PARAMETER :: trajread = 15, boxread = 20, inpread = 100
   INTEGER, PARAMETER :: dumwrite = 50
   INTEGER, PARAMETER :: max_char = 5
+  INTEGER, PARAMETER :: clustwrite = 150
   
   !Math constants
   REAL*8, PARAMETER :: pival  = 3.14159265359
@@ -47,8 +48,8 @@ MODULE PARAMS_CP2K
   !Trajectory file read details
   REAL :: box_xl,box_yl,box_zl, boxval
   REAL :: box_xf,box_yf,box_zf
-  INTEGER*8 :: nbox_steps, timestep
-  REAL*8 :: act_time
+  INTEGER :: nbox_steps, timestep
+  REAL :: act_time
 
   !Required global arrays
   CHARACTER(max_char),ALLOCATABLE :: name_arr(:) 

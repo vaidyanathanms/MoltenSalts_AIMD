@@ -35,6 +35,7 @@ SUBROUTINE READ_ANA_INP_FILE()
   IMPLICIT NONE
   
   INTEGER :: nargs,ierr,logflag,AllocateStatus,i,j
+  CHARACTER(100) :: fname_pref
   CHARACTER(256) :: dumchar
   CHARACTER(max_char) :: aname
   
@@ -147,7 +148,7 @@ SUBROUTINE READ_ANA_INP_FILE()
      ELSEIF(dumchar == 'compute_clust') THEN
 
         clust_calc_flag = 1
-        READ(anaread,*,iostat=ierr) rclust_cut
+        READ(anaread,*,iostat=ierr) rclust_cut, clust_time_flag
         
      ELSEIF(dumchar == 'compute_catanneigh') THEN
 
@@ -186,7 +187,11 @@ SUBROUTINE READ_ANA_INP_FILE()
 
   END DO
 
-  IF(logflag == 0) log_fname = "log_"//trim(adjustl(traj_fname))
+  IF(logflag == 0) THEN
+     WRITE(fname_pref,'(A11,I0,I0,A1)') "log_",iontype,c_iontype,'_'
+     log_fname  = trim(adjustl(fname_pref))//trim(adjustl(traj_fname))
+  END IF
+  
   OPEN(unit = logout,file=trim(log_fname),action="write",status="repla&
        &ce",iostat=ierr)
 
@@ -217,6 +222,7 @@ SUBROUTINE DEFAULTVALUES()
   box_from_file_flag = 0
   box_type_flag = 0
   rdfcalc_flag = 0
+  clust_calc_flag = 0; clust_time_flag = 0
   ion_dynflag = 0; cion_dynflag = 0
   catan_autocfflag = 0
   name_to_type_map_flag = 0
@@ -291,8 +297,8 @@ SUBROUTINE READ_DATAFILE()
      
      IF(masses(k,1) == -1) THEN
         
-        CALL ASSIGN_MASSES(aname,mtype,j,massval)
-        masses(k,1) = INT(mtype)
+        CALL ASSIGN_MASSES(aname,atype,j,massval)
+        masses(k,1) = INT(atype)
         masses(k,2) = massval
         
      END IF
@@ -407,7 +413,11 @@ SUBROUTINE ANALYZE_TRAJECTORYFILE()
   
   OPEN(unit = trajread,file =trim(traj_fname),action="read",status="ol&
        &d",iostat=ierr)
-  IF(ierr /= 0) STOP "trajectory file not found"
+  IF(ierr /= 0) THEN
+     WRITE(logout,*) "ERROR: ",trim(adjustl(traj_fname))," not found!"
+     STOP "trajectory file not found"
+  END IF
+     
   PRINT *, "Trajectory file used: ",trim(adjustl(traj_fname))
   WRITE(logout,*) "Trajectory file used: "&
        &,trim(adjustl(traj_fname))
@@ -424,7 +434,7 @@ SUBROUTINE ANALYZE_TRAJECTORYFILE()
      CALL PROCESS_HEADER_LINES(trim(adjustl(line_read)),timestep&
           &,act_time,eval,atchk,ierr)
 
-     IF(mod(act_time,100.0) == 0.0) PRINT *,"Time: ", act_time
+     IF(mod(act_time,100.0) == 0.0) PRINT *,"Time (fs): ", act_time
      IF(act_time .LT. start_time) THEN
         DO at_cnt = 1,atchk
            READ(trajread,*) 
@@ -440,7 +450,7 @@ SUBROUTINE ANALYZE_TRAJECTORYFILE()
      END IF
      
      ! Find box-dimension for NPT systems
-     CALL FIND_BOX_DIM(act_time)
+     CALL FIND_BOX_DIM(timestep)
      
      ! Read trajectory
      DO at_cnt = 1,atchk
@@ -514,7 +524,7 @@ SUBROUTINE PROCESS_HEADER_LINES(rline,ival,tval,enval,atomstval,ierr)
      PRINT *, "ERROR: reading ", rline
      STOP
   END IF
-
+  
   READ(rline,'(3X,I10,8X,F20.10,5X,F20.10)',iostat=ierr2) ival, tval,&
        & enval
 
@@ -523,6 +533,7 @@ SUBROUTINE PROCESS_HEADER_LINES(rline,ival,tval,enval,atomstval,ierr)
      PRINT *, "ERROR: assigning ", rline
      STOP
   END IF
+
   IF(atomstval > ntotatoms) THEN
      PRINT *, "ERROR: More atoms than in the datafile: "
      PRINT *, ntotatoms, atomstval, ival, tval
@@ -722,7 +733,8 @@ SUBROUTINE STRUCT_MAIN(tval)
   INTEGER, INTENT(IN):: tval
   INTEGER :: t1, t2
   INTEGER :: clock_rate, clock_max
-
+  CHARACTER(100) :: fname_pref
+  
   IF(rdfcalc_flag) THEN
 
      IF(tval == 1) THEN
@@ -759,15 +771,23 @@ SUBROUTINE STRUCT_MAIN(tval)
 
      IF(tval == 1) THEN
 
+        IF (clust_time_flag) THEN
+           WRITE(fname_pref,'(A11,I0,A4)') "clusttime_",c_iontype,'.tx&
+                &t'
+           dum_fname  = trim(adjustl(fname_pref))
+           OPEN(unit = clustwrite,file=dum_fname,action="write"&
+                &,status="replace")
+        END IF
+
         clust_avg = 0
         CALL SYSTEM_CLOCK(t1,clock_rate,clock_max)
-        CALL CLUSTER_ANALYSIS(tval)
+        CALL CLUSTER_ANALYSIS(tval,clust_time_flag)
         CALL SYSTEM_CLOCK(t2,clock_rate,clock_max)
         PRINT *, 'Elapsed real time for cluster analysis= ',REAL(t2&
              &-t1)/REAL(clock_rate), ' seconds'
      ELSE
 
-        CALL CLUSTER_ANALYSIS(tval)
+        CALL CLUSTER_ANALYSIS(tval,clust_time_flag)
 
      END IF
 
@@ -784,6 +804,7 @@ SUBROUTINE SORTALLARRAYS()
   IMPLICIT NONE
 
   INTEGER :: i,j,a1type,cnt,AllocateStatus,ntotion_cnt,aid,molid
+  CHARACTER(100) :: fname_pref
   INTEGER, DIMENSION(1:ntotatoms,2) :: dumsortarr,dumcionarr
 
   dumsortarr = -1; dumcionarr = -1
@@ -854,8 +875,9 @@ SUBROUTINE SORTALLARRAYS()
 
   END DO
 
-    OPEN(unit = 93,file="iontypelist.txt",action="write",status="replace&
-       &")
+  WRITE(fname_pref,'(A11,I0,A4)') "iontype_",iontype,'.txt'
+  dum_fname  = trim(adjustl(fname_pref))
+  OPEN(unit = 93,file=dum_fname,action="write",status="replace")
 
   WRITE(93,*) "Reference type/count: ", iontype, ioncnt
 
@@ -901,10 +923,10 @@ SUBROUTINE SORTALLARRAYS()
      END IF
 
   END DO
-
-
-  OPEN(unit = 93,file="cntionlist.txt",action="write",status="repl&
-       &ace")
+  
+  WRITE(fname_pref,'(A11,I0,A4)') "ciontype_",c_iontype,'.txt'
+  dum_fname  = trim(adjustl(fname_pref))
+  OPEN(unit = 93,file=dum_fname,action="write",status="replace")
 
   WRITE(93,*) "Reference type/count: ", c_iontype, c_ioncnt
 
@@ -1168,7 +1190,7 @@ END SUBROUTINE CAT_AN_NEIGHS
 
 !--------------------------------------------------------------------
 
-SUBROUTINE CLUSTER_ANALYSIS(frnum)
+SUBROUTINE CLUSTER_ANALYSIS(frnum,ctimeflag)
 
   USE PARAMS_CP2K
   IMPLICIT NONE
@@ -1182,7 +1204,7 @@ SUBROUTINE CLUSTER_ANALYSIS(frnum)
   INTEGER, DIMENSION(1:ntotion_centers) :: union_all,flag_catan,scnt&
        &,all_linked
   REAL :: rxval, ryval, rzval, rval
-  INTEGER, INTENT(IN) :: frnum
+  INTEGER, INTENT(IN) :: frnum, ctimeflag
 
 !$OMP PARALLEL SHARED(catan_direct,catan_neigh)
 
@@ -1404,16 +1426,20 @@ SUBROUTINE CLUSTER_ANALYSIS(frnum)
 
   IF(frnum == 1) THEN
      OPEN(unit =90,file ="scnt.txt",action="write",status="replace")
+     IF(clust_time_flag) WRITE(clustwrite,'(3(I0,1X),F14.8)')&
+          & ntotion_centers, iontype, c_iontype, rclust_cut
   END IF
 
   jtot = 0
 
   DO i = 1,ntotion_centers
 
-          IF(frnum == 1) WRITE(90,*) i,scnt(i)
+     IF(frnum == 1) WRITE(90,*) i,scnt(i)
      jtot = jtot + all_linked(i)
-
+     
   END DO
+
+  IF(clust_time_flag) WRITE(clustwrite,*) frnum, scnt(:)
 
   IF(jtot .NE. ntotion_centers) THEN
 
@@ -1498,8 +1524,11 @@ SUBROUTINE OUTPUT_ALLCLUSTERS()
   IMPLICIT NONE
 
   INTEGER :: i,ierr
+  CHARACTER(100) :: fname_pref
   
-  dum_fname = "clust_"//trim(adjustl(traj_fname))
+  WRITE(fname_pref,'(A11,I0,I0,A1)') "clust_",iontype,c_iontype,'_'
+  dum_fname = trim(adjustl(fname_pref))//trim(adjustl(traj_fname))
+
   OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
        &,status="replace",iostat=ierr)
   
@@ -1513,6 +1542,8 @@ SUBROUTINE OUTPUT_ALLCLUSTERS()
   END DO
   CLOSE(dumwrite)
 
+  IF(clust_time_flag) CLOSE(clustwrite)
+  
 END SUBROUTINE OUTPUT_ALLCLUSTERS
 
 !--------------------------------------------------------------------
@@ -1523,6 +1554,7 @@ SUBROUTINE OUTPUT_ALLNEIGHBORS()
   IMPLICIT NONE
 
   INTEGER :: i,frnorm,ierr
+  CHARACTER(100) :: fname_pref
   REAL :: totcat_an_neigh,totan_cat_neigh
 
   IF(neighfreq == 1) frnorm = nframes
@@ -1542,15 +1574,11 @@ SUBROUTINE OUTPUT_ALLNEIGHBORS()
 
 !$OMP END PARALLEL DO
 
-     IF(catan_neighcalc_flag) THEN
-
-        dum_fname = "catanneigh_"//trim(adjustl(traj_fname))
-        OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
-             &,status="replace")
-
-
-     END IF
-
+     WRITE(fname_pref,'(A11,I0,I0,A1)') "catanneigh_",iontype&
+          &,c_iontype,'_'
+     dum_fname = trim(adjustl(fname_pref))//trim(adjustl(traj_fname))
+     OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
+          &,status="replace")
 
      DO i = 1,maxneighsize
 
