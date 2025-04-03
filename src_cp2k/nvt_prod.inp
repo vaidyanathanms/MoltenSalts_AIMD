@@ -3,7 +3,7 @@
 
 
 ! System definitions
-@SET SYSNAME          ALCL3_MRAT_17
+@SET SYSNAME          ALCL3_MRAT_13
 @SET RTYPE            MD
 @SET CPUTIME          36000
 @SET RESTART          TRUE
@@ -11,9 +11,9 @@
 ! Files options
 @SET BASISFILE        BASIS_MOLOPT
 @SET PSEUDOFILE       GTH_POTENTIALS
-@SET WAVEFILE         ALCL3_MRAT_17-RESTART.wfn
-@SET RESTARTFILE      ALCL3_MRAT_17-1.restart
-@SET TRAJFILE         traj_nvtprod_17
+@SET WAVEFILE         ALCL3_MRAT_13-RESTART.wfn
+@SET RESTARTFILE      ALCL3_MRAT_13-1.restart
+@SET TRAJFILE         traj_nvtprod
 
 ! DFT Calculation options
 @SET CUTOFF           600

@@ -6,7 +6,7 @@
   @IF ( ${RESTART} == FALSE )
   
     &CELL
-      ABC [angstrom] 20.0 20.0 20.0 ! => Simulation box parameters
+      ABC [angstrom] 22.0 22.0 22.0 ! => Simulation box parameters
       PERIODIC XYZ ! => Periodicity of the system
     &END CELL
   

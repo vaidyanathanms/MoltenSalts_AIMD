@@ -51,8 +51,24 @@
     &XC
       &XC_FUNCTIONAL
         &PBE
+          PARAMETRIZATION ORIG !Standard PBE parameterization
         &END
       &END XC_FUNCTIONAL
+
+      &VDW_POTENTIAL
+
+        DISPERSION_FUNCTIONAL PAIR_POTENTIAL  ! Enables vdW correction
+        
+        &PAIR_POTENTIAL
+          TYPE DFTD3  ! Uses Grimme’s D3 correction
+          REFERENCE_FUNCTIONAL PBE  ! Must match the XC functional used
+          PARAMETER_FILE_NAME ./dftd3.dat
+          CALCULATE_C9_TERM TRUE  ! Enables three-body dispersion term
+          R_CUTOFF 15.0  ! Cutoff distance for dispersion interactions (Å)
+        &END PAIR_POTENTIAL
+
+      &END VDW_POTENTIAL
+
     &END XC
 
   &END DFT
