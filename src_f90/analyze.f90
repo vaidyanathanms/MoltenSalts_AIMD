@@ -188,8 +188,10 @@ SUBROUTINE READ_ANA_INP_FILE()
   END DO
 
   IF(logflag == 0) THEN
+     
      WRITE(fname_pref,'(A11,I0,I0,A1)') "log_",iontype,c_iontype,'_'
      log_fname  = trim(adjustl(fname_pref))//trim(adjustl(traj_fname))
+
   END IF
   
   OPEN(unit = logout,file=trim(log_fname),action="write",status="repla&
@@ -449,8 +451,8 @@ SUBROUTINE ANALYZE_TRAJECTORYFILE()
         WRITE(logout,*) "Starting time: ", act_time
      END IF
      
-     ! Find box-dimension for NPT systems
-     CALL FIND_BOX_DIM(timestep)
+     ! Find box-dimension for systems
+     CALL FIND_BOX_DIM(act_time)
      
      ! Read trajectory
      DO at_cnt = 1,atchk
@@ -1026,15 +1028,12 @@ SUBROUTINE COMPUTE_RDF(iframe)
 
               rxval = rxval - box_xl*ANINT(rxval/box_xl)
               ryval = ryval - box_yl*ANINT(ryval/box_yl)
-              rzval = rxyz_lmp(a1id,3) - rxyz_lmp(a2id,3)
-
-              rxval = rxval - box_xl*ANINT(rxval/box_xl)
-              ryval = ryval - box_yl*ANINT(ryval/box_yl)
-              rzval = rzval - box_yl*ANINT(rzval/box_zl)
+              rzval = rzval - box_zl*ANINT(rzval/box_zl)
 
               rval = sqrt(rxval**2 + ryval**2 + rzval**2)
               ibin = FLOOR(rval/rbinval)
 
+             
               IF(ibin .LT. rmaxbin) THEN
 
                  dumrdfarray(ibin,paircnt) = dumrdfarray(ibin&
