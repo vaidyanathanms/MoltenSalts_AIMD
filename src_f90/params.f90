@@ -12,12 +12,13 @@ MODULE PARAMS_CP2K
   INTEGER :: nproc
   INTEGER :: ioncnt,  iontype
   INTEGER :: c_ioncnt, c_iontype
-
- 
+  INTEGER :: nclust_types
+  
   ! Structural quantities
   INTEGER :: rdffreq,rmaxbin,npairs,rdfpaircnt
   INTEGER :: maxneighsize, neighfreq
-  INTEGER :: ntotion_centers
+  INTEGER :: ntotion_centers,totmult_centers
+  INTEGER :: maxsize_species
   REAL    :: rneigh_cut,rcatan_cut,rclust_cut
   REAL    :: rvolavg,rdomcut,rbinval,rvolval
 
@@ -29,7 +30,7 @@ MODULE PARAMS_CP2K
   INTEGER :: ion_dynflag, cion_dynflag
   INTEGER :: catan_autocfflag, catpol_autocfflag
   INTEGER :: name_to_type_map_flag
-  INTEGER :: ion_diff, cion_diff
+  INTEGER :: multclust_calc_flag
   
   ! File names and unit numbers
   CHARACTER(LEN = 256) :: ana_fname, dum_fname
@@ -61,10 +62,13 @@ MODULE PARAMS_CP2K
 
   !Required arrays for analysis
   INTEGER,ALLOCATABLE,DIMENSION(:,:) :: ionarray,counterarray
-  INTEGER,ALLOCATABLE,DIMENSION(:,:) :: allionids
+  INTEGER,ALLOCATABLE,DIMENSION(:,:) :: allionids,multionids
   INTEGER,ALLOCATABLE,DIMENSION(:,:):: pairs_rdf
-  REAL*8,ALLOCATABLE,DIMENSION(:) :: clust_avg
+  INTEGER,ALLOCATABLE,DIMENSION(:,:):: mclust_type_arr
+  REAL*8,ALLOCATABLE,DIMENSION(:) :: clust_avg, spec_avg
   REAL*8,ALLOCATABLE,DIMENSION(:,:):: rdfarray
+  REAL*8,ALLOCATABLE,DIMENSION(:,:):: mclust_rcut_arr
   REAL*8,ALLOCATABLE,DIMENSION(:) :: cat_an_neighavg,an_cat_neighavg
+  
 
 END MODULE PARAMS_CP2K

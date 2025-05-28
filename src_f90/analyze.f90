@@ -1,6 +1,6 @@
 ! Program to analyze CP2K trajectories
 ! Author: Vaidyanathan M. Sethuraman
-! Version: 020925
+! Version_080525
 
 PROGRAM ANALYZE_CP2K
 
@@ -35,6 +35,8 @@ SUBROUTINE READ_ANA_INP_FILE()
   IMPLICIT NONE
   
   INTEGER :: nargs,ierr,logflag,AllocateStatus,i,j
+  INTEGER :: ncut_offs,type_a,type_b, a_ind, b_ind
+  REAL    :: rcab_cut_val
   CHARACTER(100) :: fname_pref
   CHARACTER(256) :: dumchar
   CHARACTER(max_char) :: aname
@@ -154,24 +156,36 @@ SUBROUTINE READ_ANA_INP_FILE()
 
         catan_neighcalc_flag = 1
         READ(anaread,*,iostat=ierr) neighfreq,maxneighsize,rneigh_cut
+
+     ELSEIF(dumchar == 'compute_multclust') THEN
+
+        multclust_calc_flag = 1
+        READ(anaread,*,iostat=ierr) nclust_types
+        ncut_offs = INT(nclust_types*(nclust_types+1)/2)
         
-     !Here onwards dynamic properties
-!!$     ELSEIF(dumchar == 'compute_iondiff') THEN
-!!$
-!!$        READ(anaread,*,iostat=ierr) ion_diff
-!!$        ion_dynflag = 1
-!!$
-!!$     ELSEIF(dumchar == 'compute_ciondiff') THEN
-!!$
-!!$        READ(anaread,*,iostat=ierr) cion_diff
-!!$        cion_dynflag = 1
-!!$
-!!$     ELSEIF(dumchar == 'compute_catanrestime') THEN
-!!$        
-!!$        READ(anaread,*,iostat=ierr) rcatan_cut
-!!$        catan_autocfflag = 1
-!!$        ion_dynflag = 1; cion_dynflag = 1
-!!$
+        ALLOCATE(mclust_type_arr(nclust_types,2),stat=AllocateStatus)
+        IF(AllocateStatus/=0) STOP "did not allocate mclust_type_arr"
+        mclust_type_arr = 0 ! DO NOT INITIALIZE TO ANY OTHER NUMBER
+
+        DO i = 1, nclust_types
+           READ(anaread,*,iostat=ierr) type_a
+           mclust_type_arr(i,1) = type_a
+        END DO ! 2nd element is the number of each type
+           
+        ALLOCATE(mclust_rcut_arr(nclust_types,nclust_types),stat&
+             &=AllocateStatus)
+        IF(AllocateStatus/=0) STOP "did not allocate mclust_rcut_arr"
+
+        DO i = 1, ncut_offs
+
+           READ(anaread,*,iostat=ierr) type_a, type_b, rcab_cut_val
+           CALL MAP_TYPE_TO_INDEX(type_a,a_ind)
+           CALL MAP_TYPE_TO_INDEX(type_b,b_ind)
+           mclust_rcut_arr(a_ind,b_ind) = rcab_cut_val
+           mclust_rcut_arr(b_ind,a_ind) = rcab_cut_val
+
+        END DO
+
      ! Read log filename
      ELSEIF(dumchar == 'log_file') THEN
 
@@ -228,7 +242,6 @@ SUBROUTINE DEFAULTVALUES()
   ion_dynflag = 0; cion_dynflag = 0
   catan_autocfflag = 0
   name_to_type_map_flag = 0
-  ion_diff = 0; cion_diff = 0
 
   ! Initialize iontypes
   c_iontype = -1; iontype = -1
@@ -357,6 +370,39 @@ END SUBROUTINE MAP_ANAME_TO_ATYPE
 
 !--------------------------------------------------------------------
 
+SUBROUTINE MAP_TYPE_TO_INDEX(atype,a_index)
+
+  USE PARAMS_CP2K
+  IMPLICIT NONE
+
+  INTEGER, INTENT(IN)  :: atype
+  INTEGER, INTENT(OUT) :: a_index
+  INTEGER :: i
+  
+  a_index = -1
+
+  DO i = 1,nclust_types
+
+     IF(atype == mclust_type_arr(i,1)) THEN
+
+        a_index = i
+        EXIT
+
+     END IF
+
+  END DO
+
+  IF(a_index == -1) THEN
+
+     PRINT *, "Unknown atom type in cut-off data", atype
+     STOP
+
+  END IF
+     
+END SUBROUTINE MAP_TYPE_TO_INDEX
+
+!--------------------------------------------------------------------
+
 SUBROUTINE ASSIGN_MASSES(aname,atype,aid,massval)
 
   USE PARAMS_CP2K
@@ -436,7 +482,7 @@ SUBROUTINE ANALYZE_TRAJECTORYFILE()
      CALL PROCESS_HEADER_LINES(trim(adjustl(line_read)),timestep&
           &,act_time,eval,atchk,ierr)
 
-     IF(mod(act_time,100.0) == 0.0) PRINT *,"Time (fs): ", act_time
+     IF(mod(act_time,1000.0) == 0.0) PRINT *,"Time (fs): ", act_time
      IF(act_time .LT. start_time) THEN
         DO at_cnt = 1,atchk
            READ(trajread,*) 
@@ -690,8 +736,6 @@ SUBROUTINE STRUCT_INIT()
 
   END IF
 
-
-
 END SUBROUTINE STRUCT_INIT
 
 !--------------------------------------------------------------------
@@ -741,21 +785,26 @@ SUBROUTINE STRUCT_MAIN(tval)
 
      IF(tval == 1) THEN
 
+        PRINT *, "Checking RDF calculations ..."
         CALL SYSTEM_CLOCK(t1,clock_rate,clock_max)
         CALL COMPUTE_RDF(tval)
         CALL SYSTEM_CLOCK(t2,clock_rate,clock_max)
         PRINT *, 'Elapsed real time for RDF analysis: ',REAL(t2&
              &-t1)/REAL(clock_rate), ' seconds'
 
+     ELSEIF (mod(tval-1,rdffreq)==0) THEN
+
+        CALL COMPUTE_RDF(tval)
+
      END IF
-     IF(mod(tval-1,rdffreq)==0) CALL COMPUTE_RDF(tval)
 
   END IF
 
   IF(catan_neighcalc_flag) THEN
 
      IF(tval == 1) THEN
-
+        
+        PRINT *, "Checking Cation-Anion Neighbor calculations ..."
         cat_an_neighavg = 0.0; an_cat_neighavg=0.0
         CALL SYSTEM_CLOCK(t1,clock_rate,clock_max)
         CALL CAT_AN_NEIGHS()
@@ -763,9 +812,11 @@ SUBROUTINE STRUCT_MAIN(tval)
         PRINT *, 'Elapsed real time for neighbor analysis: ',REAL(t2&
              &-t1)/REAL(clock_rate), ' seconds'
 
-     END IF
+     ELSEIF(mod(tval,neighfreq) == 0) THEN
 
-     IF(mod(tval,neighfreq) == 0) CALL CAT_AN_NEIGHS()
+        CALL CAT_AN_NEIGHS()
+
+     END IF
 
   END IF
 
@@ -773,9 +824,11 @@ SUBROUTINE STRUCT_MAIN(tval)
 
      IF(tval == 1) THEN
 
-        IF (clust_time_flag) THEN
+        PRINT *, "Checking Binary cluster calculations ..."
+        IF(clust_time_flag) THEN
+           
            WRITE(fname_pref,'(A11,I0,A4)') "clusttime_",c_iontype,'.tx&
-                &t'
+                &t'       
            dum_fname  = trim(adjustl(fname_pref))
            OPEN(unit = clustwrite,file=dum_fname,action="write"&
                 &,status="replace")
@@ -783,13 +836,32 @@ SUBROUTINE STRUCT_MAIN(tval)
 
         clust_avg = 0
         CALL SYSTEM_CLOCK(t1,clock_rate,clock_max)
-        CALL CLUSTER_ANALYSIS(tval,clust_time_flag)
+        CALL BINARY_CLUSTER_ANALYSIS(tval)
         CALL SYSTEM_CLOCK(t2,clock_rate,clock_max)
         PRINT *, 'Elapsed real time for cluster analysis= ',REAL(t2&
              &-t1)/REAL(clock_rate), ' seconds'
      ELSE
 
-        CALL CLUSTER_ANALYSIS(tval,clust_time_flag)
+        CALL BINARY_CLUSTER_ANALYSIS(tval)
+
+     END IF
+
+  END IF
+
+  IF(multclust_calc_flag) THEN
+
+     IF(tval == 1) THEN
+        
+        PRINT *, "Checking poly cluster calculations ..."
+        spec_avg = 0
+        CALL SYSTEM_CLOCK(t1,clock_rate,clock_max)
+        CALL POLYTYPE_CLUSTER_ANALYSIS(tval)
+        CALL SYSTEM_CLOCK(t2,clock_rate,clock_max)
+        PRINT *, 'Elapsed real time for cluster analysis= ',REAL(t2&
+             &-t1)/REAL(clock_rate), ' seconds'
+     ELSE
+
+        CALL POLYTYPE_CLUSTER_ANALYSIS(tval)
 
      END IF
 
@@ -806,6 +878,7 @@ SUBROUTINE SORTALLARRAYS()
   IMPLICIT NONE
 
   INTEGER :: i,j,a1type,cnt,AllocateStatus,ntotion_cnt,aid,molid
+  INTEGER :: center_cnt
   CHARACTER(100) :: fname_pref
   INTEGER, DIMENSION(1:ntotatoms,2) :: dumsortarr,dumcionarr
 
@@ -977,8 +1050,84 @@ SUBROUTINE SORTALLARRAYS()
 
   END IF
 
+  IF (multclust_calc_flag) THEN
+
+     CALL COUNT_TYPES()
+     maxsize_species = product(mclust_type_arr(:,2))
+          
+     ALLOCATE(multionids(totmult_centers,2),stat = AllocateStatus)
+
+     IF(AllocateStatus/=0) STOP "did not allocate multionids"
+     ALLOCATE(spec_avg(maxsize_species),stat = AllocateStatus)
+     IF(AllocateStatus/=0) STOP "did not allocate spec_avg"
+
+     multionids = 0
+     center_cnt = 0 ! counter for multionids
+     
+     DO i = 1, ntotatoms
+
+        DO j = 1,nclust_types
+
+           IF(aidvals(i,3) == mclust_type_arr(j,1)) THEN
+
+              center_cnt = center_cnt + 1
+              multionids(center_cnt,1) = aidvals(i,1)
+              multionids(center_cnt,2) = aidvals(i,3)
+              
+              EXIT
+
+           END IF
+
+        END DO
+
+     END DO
+
+     IF(center_cnt .NE. totmult_centers) THEN
+
+        PRINT *, "Unequal number in counting centers for mult-clust"
+        PRINT *, center_cnt, totmult_centers
+        STOP
+
+     END IF
+
+  ELSE
+
+     ALLOCATE(multionids(1,2),stat = AllocateStatus)
+     DEALLOCATE(multionids)
+
+  END IF
+     
 END SUBROUTINE SORTALLARRAYS
   
+!--------------------------------------------------------------------
+
+SUBROUTINE COUNT_TYPES()
+
+  USE PARAMS_CP2K
+  IMPLICIT NONE
+
+  INTEGER :: i,j
+
+  totmult_centers = 0
+  
+  DO i = 1,ntotatoms
+
+     DO j = 1,nclust_types
+
+        IF(aidvals(i,3) == mclust_type_arr(j,1)) THEN
+
+           mclust_type_arr(j,2) = mclust_type_arr(j,2) + 1
+           totmult_centers = totmult_centers + 1
+           EXIT
+
+        END IF
+
+     END DO
+
+  END DO
+
+END SUBROUTINE COUNT_TYPES
+
 !--------------------------------------------------------------------
 
 SUBROUTINE COMPUTE_RDF(iframe)
@@ -1189,7 +1338,7 @@ END SUBROUTINE CAT_AN_NEIGHS
 
 !--------------------------------------------------------------------
 
-SUBROUTINE CLUSTER_ANALYSIS(frnum,ctimeflag)
+SUBROUTINE BINARY_CLUSTER_ANALYSIS(frnum)
 
   USE PARAMS_CP2K
   IMPLICIT NONE
@@ -1199,19 +1348,18 @@ SUBROUTINE CLUSTER_ANALYSIS(frnum,ctimeflag)
   INTEGER :: i,j,k,a2ptr,a1id,a2id,itype,jtype,jptr,idum,jflag,jcnt&
        &,iflag,jtot,jind,jprev
   INTEGER, DIMENSION(ntotion_centers,ntotion_centers) :: all_direct&
-       &,catan_direct,all_neigh,catan_neigh
-  INTEGER, DIMENSION(1:ntotion_centers) :: union_all,flag_catan,scnt&
-       &,all_linked
+       &,catan_direct,all_neigh
+  INTEGER, DIMENSION(1:ntotion_centers) :: union_all,scnt,all_linked
   REAL :: rxval, ryval, rzval, rval
-  INTEGER, INTENT(IN) :: frnum, ctimeflag
+  INTEGER, INTENT(IN) :: frnum
 
-!$OMP PARALLEL SHARED(catan_direct,catan_neigh)
+!$OMP PARALLEL SHARED(catan_direct)
 
 !$OMP DO PRIVATE(i,j)
   DO i = 1,ntotion_centers
 
      scnt(i) = 0; all_linked(i)  = 0
-     union_all(i) = -1; flag_catan(i) = -1
+     union_all(i) = -1
 
      DO j = 1,ntotion_centers
 
@@ -1226,16 +1374,15 @@ SUBROUTINE CLUSTER_ANALYSIS(frnum,ctimeflag)
         END IF
 
         all_neigh(i,j) = 0
-!        catan_neigh(i,j) = 0
-
+        
      END DO
 
   END DO
 !$OMP END DO
 
 !Create Direct connectivity matrix
-!allneigh - does not distinguish between Li and P neigh
-!catan_neigh - neighbors with sequence cat-an-cat-an.. or an-cat-an-cat...
+!all_direct - does not distinguish between Li and P neigh
+!catan_direct - neighbors with sequence cat-an-cat-an.. or an-cat-an-cat...
 
 !$OMP DO PRIVATE(i,j,a1id,a2ptr,a2id,rxval,ryval,rzval,rval,itype&
 !$OMP& ,jptr,jtype)  
@@ -1475,7 +1622,357 @@ SUBROUTINE CLUSTER_ANALYSIS(frnum,ctimeflag)
 
   END IF
 
-END SUBROUTINE CLUSTER_ANALYSIS
+END SUBROUTINE BINARY_CLUSTER_ANALYSIS
+
+!--------------------------------------------------------------------
+
+SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS(frnum)
+
+  USE PARAMS_CP2K
+  IMPLICIT NONE
+
+!Extending Ref Sevick et.al ., J Chem Phys 88 (2)
+
+  INTEGER :: i,j,k,a2ptr,a1id,a2id,itype,jtype,jptr,idum,jflag,jcnt&
+       &,iflag,jtot,jind,jprev,spec_ind,stride,i_index,j_index
+  INTEGER, DIMENSION(1:totmult_centers,1:totmult_centers) ::&
+       & all_direct,all_neigh
+  INTEGER, DIMENSION(1:totmult_centers) :: union_all,scnt,all_linked
+  INTEGER, DIMENSION(1:maxsize_species) :: sum_species
+  INTEGER, DIMENSION(1:nclust_types) :: sum_atoms
+  REAL :: rxval, ryval, rzval, rval, rcut_ij
+  INTEGER, INTENT(IN) :: frnum
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(i,j)
+  DO i = 1,totmult_centers
+
+     scnt(i) = 0; all_linked(i)  = 0
+     union_all(i) = -1
+
+     DO j = 1,totmult_centers
+        
+        IF(i == j) THEN
+           all_direct(i,j) = 1
+        ELSE
+           all_direct(i,j) = 0
+        END IF
+
+        all_neigh(i,j) = 0
+        
+     END DO
+
+  END DO
+!$OMP END DO
+
+!Create Direct connectivity matrix
+!all_direct - does not distinguish between different molecules
+
+
+!$OMP DO PRIVATE(i,j,a1id,a2ptr,a2id,rxval,ryval,rzval,rval,itype&
+!$OMP& ,jptr,jtype,rcut_ij,i_index,j_index)  
+  DO i = 1,totmult_centers
+
+     a1id  = multionids(i,1)
+     a2ptr = 1
+     itype = aidvals(a1id,3)
+     jptr  = 1
+     all_neigh(i,i) = a1id
+
+     DO j = 1,totmult_centers
+
+        a2id = multionids(j,1)
+        jtype = aidvals(a2id,3)
+        
+        rxval = rxyz_lmp(a1id,1) - rxyz_lmp(a2id,1)
+        ryval = rxyz_lmp(a1id,2) - rxyz_lmp(a2id,2)
+        rzval = rxyz_lmp(a1id,3) - rxyz_lmp(a2id,3)
+
+        rxval = rxval - box_xl*ANINT(rxval/box_xl)
+        ryval = ryval - box_yl*ANINT(ryval/box_yl)
+        rzval = rzval - box_zl*ANINT(rzval/box_zl)
+
+        rval = sqrt(rxval**2 + ryval**2 + rzval**2)
+
+        CALL MAP_TYPE_TO_INDEX(itype,i_index)
+        CALL MAP_TYPE_TO_INDEX(jtype,j_index)
+        rcut_ij = mclust_rcut_arr(i_index,j_index)
+        
+        IF(rval .LT. rcut_ij .AND. a1id .NE. a2id) THEN
+
+           all_direct(i,j) = 1
+           all_neigh(i,j)  = a2id
+
+        END IF
+
+     END DO
+
+  END DO
+
+!$OMP END DO  
+
+  
+  
+!Check for symmetry
+  IF(frnum == 1) THEN
+!$OMP DO
+     DO i = 1,totmult_centers
+
+        DO j = 1,totmult_centers
+
+           IF(all_direct(i,j) .NE. all_direct(j,i)) THEN
+
+              PRINT *, i, j, all_direct(i,j), all_direct(j,i)
+              STOP "Unsymmetric all_direct"
+
+           END IF
+
+           IF(all_neigh(i,j) .NE. 0) THEN
+
+              IF(all_neigh(i,j) .NE. all_neigh(j,j) .OR. all_neigh(j&
+                   &,i) .NE. all_neigh(i,i)) THEN
+
+                 PRINT *, i,j,all_direct(i,j),all_direct(j,i)&
+                      &,all_neigh(j,i),all_neigh(i,i)
+                 STOP "Unsymmetric neighbor list"
+
+              END IF
+
+           END IF
+
+        END DO
+
+     END DO
+!$OMP END DO
+  END IF
+
+!$OMP END PARALLEL        
+
+  !Intersection
+
+  DO i = 1,totmult_centers-1 !Ref row counter
+
+     iflag = 0
+     idum  = i
+
+     DO WHILE(iflag == 0 .AND. union_all(i) == -1)
+
+        jflag = 0
+        k    = 1 !Column counter
+        j    = idum+1 !Other row counter
+
+        DO WHILE(jflag == 0 .AND. k .LE. totmult_centers)
+
+           IF((all_direct(i,k) == all_direct(j,k)).AND. all_direct(i&
+                &,k)== 1) THEN
+
+              jflag = 1
+
+              DO jcnt = 1,totmult_centers
+
+                 !Replace highest row by union of two rows
+                 all_direct(j,jcnt) = all_direct(i,jcnt) .OR.&
+                      & all_direct(j,jcnt)
+
+              END DO
+
+              union_all(i) = 1 !One match implies the low ranked row
+              ! is present in high ranked row
+
+           ELSE
+
+              k = k + 1
+
+           END IF
+
+        END DO
+
+        IF(union_all(i) == 1) THEN
+
+           iflag = 1
+
+        ELSE
+
+           idum  = idum + 1
+
+        END IF
+
+        IF(idum == totmult_centers) iflag = 1
+
+     END DO
+
+  END DO
+
+!Count
+  jtot = 0
+  sum_species = 0
+
+  
+
+  !** sum_atoms(i)**
+  !sum_atoms(i) corresponds to the number of occurences of type "i" in
+  !each row of all_direct(i,j) when union_all(i) = -1
+
+  !** sum_species(i) **
+  !sum_species(i) is a 1D array obtained by converting the nD
+  !sum_atoms(i)
+
+!!$  print *, multionids(:,2)
+
+!!$  print *, "all independent rows"
+!!$  do i = 1,totmult_centers
+!!$     if (union_all(i) == -1) print *, i
+!!$  end do
+  
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i,j,k,jind,sum_atoms,spec_ind,stride,j_index) &
+!$OMP& REDUCTION(+:sum_species) 
+
+  DO i = 1,totmult_centers
+
+     IF(union_all(i) == -1) THEN
+
+        jind = 0
+        sum_atoms = 0
+        
+        DO j = 1,totmult_centers
+
+           IF(all_direct(i,j) == 1) THEN
+
+              jind = jind + 1 ! No-identity preserved
+
+              ! With identity preserved
+              ! multionids(j,2): type of j atom in multionids
+              CALL MAP_TYPE_TO_INDEX(multionids(j,2),j_index)
+
+              !Sanity check
+              IF(j_index > nclust_types) THEN
+
+                 PRINT *, "Unphysical j_index", j_index, i,&
+                      & nclust_types
+                 STOP
+
+              END IF
+
+              sum_atoms(j_index) = sum_atoms(j_index) + 1
+              
+           END IF
+
+        END DO
+
+!!$        print *, "all_direct row", all_direct(i,:)
+!!$        print *, "sum_atoms", i,jind,multionids(i,2),sum_atoms
+
+        ! Note, spec_ind cannot be 0 since at least the element will
+        ! be bonded to itself
+        
+        ! Need to convert the nD array to 1D array
+        ! mclust_type_arr(k,2): amount of type k
+        spec_ind = 0; stride = 1
+        DO k = 1,nclust_types
+           
+           spec_ind = spec_ind + sum_atoms(k) * stride
+           stride = stride * mclust_type_arr(k,2)
+           
+        END DO
+
+        IF(spec_ind == 0) THEN
+
+           PRINT *, "Unphysical all_direct matrix", i, sum_atoms,&
+                & all_direct(i,:)
+           STOP
+
+        END IF
+        
+        sum_species(spec_ind) = sum_species(spec_ind) + 1
+
+!!$        print *, "sum_spec",i,jind,multionids(i,2),spec_ind&
+!!$             &,sum_species(spec_ind)
+!!$
+!!$        pause;
+           
+        scnt(jind) = scnt(jind) + 1
+        all_linked(i) = jind
+
+     END IF
+
+  END DO
+!$OMP END DO
+
+!$OMP DO PRIVATE(i)
+
+  DO i = 1,maxsize_species
+
+     spec_avg(i) = spec_avg(i) + sum_species(i)
+
+  END DO
+!$OMP END DO
+
+  
+!$OMP END PARALLEL
+
+  IF(frnum == 1) THEN
+     OPEN(unit =90,file ="scnt.txt",action="write",status="replace")
+
+
+     OPEN(unit =92,file ="species.txt",action="write",status&
+          &="replace")
+     
+     DO i = 1, maxsize_species
+
+        WRITE(92,*) i, sum_species(i)
+
+     END DO
+
+     CLOSE(92)
+     
+  END IF
+
+  jtot = 0
+
+  DO i = 1, totmult_centers
+
+     IF(frnum == 1) WRITE(90,*) i,scnt(i)
+     jtot = jtot + all_linked(i)
+     
+  END DO
+  
+  IF(jtot .NE. totmult_centers) THEN
+
+     PRINT *, "Sum of centers not equal to total molecules"
+     PRINT *, jtot, totmult_centers
+     STOP
+
+  END IF
+
+  IF(frnum == 1) CLOSE(90)
+
+  IF(frnum == 1) THEN
+
+     OPEN(unit =90,file ="all_neigh.txt",action="write",status="replace")
+
+     DO i = 1,totmult_centers
+
+        IF(union_all(i) == -1) THEN
+
+           WRITE(90,*) i,all_linked(i)
+
+           DO j = 1,totmult_centers
+
+              IF(all_direct(i,j) == 1) WRITE(90,*) i,j,multionids(i&
+                   &,2),multionids(j,2)
+
+           END DO
+
+        END IF
+
+     END DO
+
+     CLOSE(90)
+
+  END IF
+
+END SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS
 
 !--------------------------------------------------------------------
 
@@ -1508,16 +2005,25 @@ SUBROUTINE ALLOUTPUTS()
 
   IF(clust_calc_flag) THEN
 
-     PRINT *, "Writing cluster outputs .."
-     CALL OUTPUT_ALLCLUSTERS()
+     PRINT *, "Writing binary-cluster outputs .."
+     CALL OUTPUT_BINARY_CLUSTERS()
 
   END IF
+
+  IF(multclust_calc_flag) THEN
+
+     PRINT *, "Writing poly-cluster outputs .."
+     CALL OUTPUT_POLY_CLUSTERS()
+
+  END IF
+
+
   
 END SUBROUTINE ALLOUTPUTS
 
 !--------------------------------------------------------------------
 
-SUBROUTINE OUTPUT_ALLCLUSTERS()
+SUBROUTINE OUTPUT_BINARY_CLUSTERS()
 
   USE PARAMS_CP2K
   IMPLICIT NONE
@@ -1543,7 +2049,52 @@ SUBROUTINE OUTPUT_ALLCLUSTERS()
 
   IF(clust_time_flag) CLOSE(clustwrite)
   
-END SUBROUTINE OUTPUT_ALLCLUSTERS
+END SUBROUTINE OUTPUT_BINARY_CLUSTERS
+
+!--------------------------------------------------------------------
+
+SUBROUTINE OUTPUT_POLY_CLUSTERS()
+
+  USE PARAMS_CP2K
+  IMPLICIT NONE
+
+  INTEGER :: i,ierr,k,stride
+  INTEGER :: atom_index,index_remain
+  
+  dum_fname = "polyclust_"//trim(adjustl(traj_fname))//".dat"
+
+  OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
+       &,status="replace",iostat=ierr)
+  
+  IF(ierr /= 0) PRINT *, "Unknown polyclust_filename"
+
+  ! Unflatten and write only the non-zero species
+  
+  DO i = 1,maxsize_species
+
+     IF(spec_avg(i) .NE. 0) THEN
+
+        index_remain = i; stride = 1
+
+        WRITE(dumwrite,'(I0,1X)',advance="no") i
+        
+        DO k = 1,nclust_types
+
+           IF(k>1) stride = stride*mclust_type_arr(k-1,2)
+           atom_index = MOD(index_remain/stride,mclust_type_arr(k,2))
+
+           WRITE(dumwrite,'(I0,1X)',advance="no") atom_index
+
+        END DO
+             
+        WRITE(dumwrite,'(F14.8,1X)') REAL(spec_avg(i))/REAL(nframes)
+
+     END IF
+        
+  END DO
+  CLOSE(dumwrite)
+
+END SUBROUTINE OUTPUT_POLY_CLUSTERS
 
 !--------------------------------------------------------------------
 
@@ -1596,7 +2147,6 @@ SUBROUTINE OUTPUT_ALLNEIGHBORS()
 END SUBROUTINE OUTPUT_ALLNEIGHBORS
 
 !--------------------------------------------------------------------
-
 
 SUBROUTINE OUTPUT_ALLRDF()
 
