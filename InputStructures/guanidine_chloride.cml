@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<molecule xmlns="http://www.xml-cml.org/schema" xmlns:cml="http://www.xml-cml.org/dictionary/cml" xmlns:units="http://www.xml-cml.org/unit/nonSi" xmlns:xsd="http://www.w3c.org/2001/XMLSchema" xmlns:iupac="http://www.iupac.org">
+  <name>Guanidine Chloride</name>
+  <atomArray>
+    <atom id="a1" elementType="C" x3="-1.50367" y3="1.16765" z3="0.0221639" />
+    <atom id="a2" elementType="N" x3="-2.65494" y3="1.11111" z3="-0.637408" />
+    <atom id="a3" elementType="N" x3="-1.50041" y3="1.21444" z3="1.34938" />
+    <atom id="a4" elementType="H" x3="-0.330516" y3="1.14273" z3="-1.65667" />
+    <atom id="a5" elementType="N" x3="-0.355658" y3="1.17727" z3="-0.645448" />
+    <atom id="a6" elementType="H" x3="0.535249" y3="1.21956" z3="-0.166944" />
+    <atom id="a7" elementType="H" x3="-0.637017" y3="1.25783" z3="1.87581" />
+    <atom id="a8" elementType="H" x3="-3.54338" y3="1.10196" z3="-0.152626" />
+    <atom id="a9" elementType="H" x3="-2.68506" y3="1.07523" z3="-1.64844" />
+    <atom id="a10" elementType="H" x3="-2.36111" y3="1.20841" z3="1.88192" />
+    <atom id="a11" elementType="Cl" x3="2.38263" y3="1.14394" z3="1.02936" />
+  </atomArray>
+  <bondArray>
+    <bond atomRefs2="a1 a2" order="1" />
+    <bond atomRefs2="a1 a3" order="2" />
+    <bond atomRefs2="a4 a5" order="1" />
+    <bond atomRefs2="a1 a5" order="1" />
+    <bond atomRefs2="a6 a5" order="1" />
+    <bond atomRefs2="a7 a3" order="1" />
+    <bond atomRefs2="a8 a2" order="1" />
+    <bond atomRefs2="a9 a2" order="1" />
+    <bond atomRefs2="a3 a10" order="1" />
+  </bondArray>
+</molecule>
