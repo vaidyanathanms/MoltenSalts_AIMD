@@ -1,5 +1,5 @@
 #
-# A mixture of AlCl3 and base
+# A mixture of AlCl3 and base - Urea
 #
 
 tolerance 2.0
@@ -7,13 +7,35 @@ filetype xyz
 output system.xyz
 movebadrandom
 
-structure ../../../InputStructures/AlCl3.xyz 
-  number 22
-  inside box 0. 0. 0. 22 22 22
+# Split into Al2Cl6, AlCl4-, Al2Cl7-, AlCl2+
+
+#Al2Cl6
+structure ../../../InputStructures/al2cl6_optim.xyz 
+  number 5
+  inside box 0. 0. 0. 19.30 19.30 19.30
 end structure
 
-structure ../../../InputStructures/AcONH2.xyz
+#AlCl4-
+structure ../../../InputStructures/alcl4m1_optim.xyz
+  number 3
+  inside box 0. 0. 0. 19.30 19.30 19.30
+end structure
+
+#Al2Cl7-
+structure ../../../InputStructures/al2cl7m1_optim.xyz
+  number 2
+  inside box 0. 0. 0. 19.30 19.30 19.30
+end structure
+
+#AlCl2+
+structure ../../../InputStructures/alcl2_optim.xyz
+  number 5
+  inside box 0. 0. 0. 19.30 19.30 19.30
+end structure
+
+#Base
+structure ../../../InputStructures/Urea.xyz
   number 17
-  inside box 0. 0. 0. 22 22 22
+  inside box 0. 0. 0. 19.30 19.30 19.30
 end structure
 

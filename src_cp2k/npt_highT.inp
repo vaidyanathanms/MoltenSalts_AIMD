@@ -4,19 +4,19 @@
 
 ! System definitions
 @SET SYSNAME          UREA_MRAT_10
-@SET RTYPE            GEO_OPT 
-@SET CPUTIME          30000
-@SET RESTART          FALSE
+@SET RTYPE            MD
+@SET CPUTIME          64800
+@SET RESTART          TRUE
 
 ! Files options
 @SET BASISFILE        BASIS_MOLOPT
 @SET PSEUDOFILE       GTH_POTENTIALS
 @SET WAVEFILE         UREA_MRAT_10-RESTART.wfn
-@SET RESTARTFILE      UREA_MRAT_10.restart
-@SET TRAJFILE         traj_opt
+@SET RESTARTFILE      UREA_MRAT_10-1.restart
+@SET TRAJFILE         traj_npt_highT
 
 ! DFT Calculation options
-@SET CUTOFF           300
+@SET CUTOFF           1000
 @SET GRIDS            5
 @SET SCF_NCYCLES      500
 @SET SCF_OCYCLES      100
@@ -37,17 +37,16 @@
 @SET GEO_MAXS 10000
 
 ! Molecular dynamics options
-@SET MD_ENS NVT
+@SET MD_ENS NPT_I
 @SET MD_STEPS 5000
 @SET MD_DT 1.0
-@SET MD_TEMP 323
+@SET MD_TEMP 398
 
 ! Output options
 @SET OUT_FORM XYZ
 @SET OUT_UNIT angstrom
-@SET OUT_STEPS 1
+@SET OUT_STEPS 100 
 @SET VELOUT_STEPS 500 
-
 
 ! GLOBAL section
 &GLOBAL
