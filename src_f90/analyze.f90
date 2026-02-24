@@ -1126,6 +1126,12 @@ SUBROUTINE COUNT_TYPES()
 
   END DO
 
+  PRINT *, "***** For polycluster analysis *******"
+  PRINT *, "Total centers: ", totmult_centers
+  PRINT *, "Types: ", mclust_type_arr(:,1)
+  PRINT *, "Numbers: ", mclust_type_arr(:,2)
+  PRINT *, "**************************************"
+  
 END SUBROUTINE COUNT_TYPES
 
 !--------------------------------------------------------------------
@@ -1697,12 +1703,12 @@ SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS(frnum)
         CALL MAP_TYPE_TO_INDEX(itype,i_index)
         CALL MAP_TYPE_TO_INDEX(jtype,j_index)
         rcut_ij = mclust_rcut_arr(i_index,j_index)
-        
+
         IF(rval .LT. rcut_ij .AND. a1id .NE. a2id) THEN
 
            all_direct(i,j) = 1
            all_neigh(i,j)  = a2id
-
+           
         END IF
 
      END DO
@@ -1710,7 +1716,6 @@ SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS(frnum)
   END DO
 
 !$OMP END DO  
-
   
   
 !Check for symmetry
@@ -1823,7 +1828,7 @@ SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS(frnum)
 !!$  do i = 1,totmult_centers
 !!$     if (union_all(i) == -1) print *, i
 !!$  end do
-  
+
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(i,j,k,jind,sum_atoms,spec_ind,stride,j_index) &
 !$OMP& REDUCTION(+:sum_species) 
@@ -1860,11 +1865,8 @@ SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS(frnum)
 
         END DO
 
-!!$        print *, "all_direct row", all_direct(i,:)
-!!$        print *, "sum_atoms", i,jind,multionids(i,2),sum_atoms
-
         ! Note, spec_ind cannot be 0 since at least the element will
-        ! be bonded to itself
+        ! be "bonded" to itself
         
         ! Need to convert the nD array to 1D array
         ! mclust_type_arr(k,2): amount of type k
@@ -1885,12 +1887,10 @@ SUBROUTINE POLYTYPE_CLUSTER_ANALYSIS(frnum)
         END IF
         
         sum_species(spec_ind) = sum_species(spec_ind) + 1
-
-!!$        print *, "sum_spec",i,jind,multionids(i,2),spec_ind&
-!!$             &,sum_species(spec_ind)
-!!$
+!!$        print *, "sum_atoms", i,jind,multionids(i,2),sum_atoms&
+!!$             &,spec_ind,sum_species(spec_ind)
 !!$        pause;
-           
+
         scnt(jind) = scnt(jind) + 1
         all_linked(i) = jind
 
@@ -2061,7 +2061,7 @@ SUBROUTINE OUTPUT_POLY_CLUSTERS()
   INTEGER :: i,ierr,k,stride
   INTEGER :: atom_index,index_remain
   
-  dum_fname = "polyclust_"//trim(adjustl(traj_fname))//".dat"
+  dum_fname = "polyclust_"//trim(adjustl(traj_fname))
 
   OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
        &,status="replace",iostat=ierr)
