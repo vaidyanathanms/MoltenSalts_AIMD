@@ -11,9 +11,10 @@ plot_equil = 1; % Plot only equilibrium data
 
 %% Inputs
 basename = 'Urea'; baseshort = '.Ur';
-molratio = [13, 14, 15, 17];
+molratio = [13, 15, 17];
 thresh_cnt  = 100; % Maximum possible clusters
 thresh_frac = 0.1; % Plot fractions only above this value
+caseid      = 3; % case number
 
 maindirname = sprintf('../../sim_results/allresults_%s',basename);
 outmaindir  = sprintf('../../analyzed_results/allresults_%s',basename);
@@ -21,10 +22,10 @@ outfigdir   = sprintf('../../figures/%s',basename);
 
 for mcnt = 1:length(molratio)
 
-  printf('Analyzing mol-ratio: %d\n', molratio(mcnt));
+  printf('Analyzing mol-ratio in Case-: %d \t %d\n', molratio(mcnt), caseid);
 
   % Check for files
-  mainpath = sprintf('%s/results_%d', maindirname,molratio(mcnt));
+  mainpath = sprintf('%s/results_%d/Case_%d', maindirname,molratio(mcnt),caseid);
   polyclust_fnames = dir(sprintf('%s/polyclust_*',mainpath));
 
   if isempty(polyclust_fnames)
@@ -36,7 +37,7 @@ for mcnt = 1:length(molratio)
   if ~exist(outmaindir,'dir')
     mkdir(outmaindir)
   endif
-  fout = fopen(sprintf('%s/polyclust_time_%d.dat',outmaindir,molratio(mcnt)),'w');
+  fout = fopen(sprintf('%s/polyclust_time_%d_case_%d.dat',outmaindir,molratio(mcnt),caseid),'w');
   fprintf(fout,'%s\t %s\t %s\t %s\t %s\n','ID_Tot', 'ID_1','ID_2','ID_3','Fraction')
 
   % Generate polyclus-time arrays
@@ -106,7 +107,7 @@ id_plcnt = 0;
 
 % Analyze files
 for mcnt = 1:length(molratio)
-  fname = sprintf('%s/polyclust_time_%d.dat',outmaindir,molratio(mcnt));
+  fname = sprintf('%s/polyclust_time_%d_case_%d.dat',outmaindir,molratio(mcnt),caseid);
   polyplot_arr = dlmread(fname,'',1,0); %skip header lines
   len_line = length(polyplot_arr(1,:));
 
@@ -144,7 +145,7 @@ pclust_avg = pclust_avg(pclust_avg(:,1) > 0, :);
 pclust_avg_sorted = sortrows(pclust_avg,2); % Sort w.r.t Al
 
 % Write to o/p file
-fconsout = fopen(sprintf('%s/polyclust_avg_all.dat',outmaindir),'w');
+fconsout = fopen(sprintf('%s/polyclust_avg_all_case_%d.dat',outmaindir,caseid),'w');
 fprintf(fout,'%s\t %s\t %s\t %s\t ','ID_Tot', 'ID_1','ID_2','ID_3')
 for mcnt = 1:length(molratio) % Write headers
   fprintf(fout,'%g\t ', molratio(mcnt)/10);
@@ -163,7 +164,8 @@ if ~exist(outfigdir,'dir')
   mkdir(outfigdir)
 endif
 
-clr_arr = {'g','b','r','m','#800080','k','#FFA500','#A52A2A','#006400','c','#F987C5','#40E0D0','#BDB76B','#40E0D0'};
+clr_arr = {'g','b','r','m','#800080','k','#FFA500','#A52A2A','#006400','c','#F987C5','#40E0D0','#BDB76B','#40E0D0', ...
+'g','b','r','m','#800080','k','#FFA500','#A52A2A','#006400','c','#F987C5'};
 
 if plot_time
   for mcnt = 1:length(molratio)
@@ -181,7 +183,7 @@ if plot_time
     leg1_arr = {}; leg2_arr = {};
     leg1cnt = 1; leg2cnt = 1;
 
-    fname = sprintf('%s/polyclust_time_%d.dat',outmaindir,molratio(mcnt));
+    fname = sprintf('%s/polyclust_time_%d_case_%d.dat',outmaindir,molratio(mcnt),caseid);
     polyplot_arr = dlmread(fname,'',1,0); %skip header lines
     len_line = length(polyplot_arr(1,:));
     tarr = 1:1:(len_line-4);
@@ -202,12 +204,12 @@ if plot_time
 
     if leg1cnt > 1
       legend(ax1,leg1_arr,'location','bestoutside','FontSize',16,'Interpreter','Tex')
-      saveas(h1,sprintf('%s/polyclust_%d_gt_thresh', outfigdir,molratio(mcnt)),'png')
+      saveas(h1,sprintf('%s/polyclust_%d_gt_thresh_case_%d', outfigdir,molratio(mcnt),caseid),'png')
     end
 
     if leg2cnt > 1
       legend(ax2,leg2_arr,'location','bestoutside','FontSize',16)
-      saveas(h2,sprintf('%s/polyclust_%d_leq_thresh', outfigdir,molratio(mcnt)),'png')
+      saveas(h2,sprintf('%s/polyclust_%d_leq_thresh_case_%d', outfigdir,molratio(mcnt),caseid),'png')
     end
 
     close(h1); close(h2);
@@ -242,7 +244,7 @@ if plot_equil
   ylabel('n(s)','FontSize',20,'Interpreter','Tex');
   legend(leg_arr);
   xtickangle(90);  % Rotate x-tick labels by 90 degrees
-  saveas(h1,sprintf('%s/polyclust_all_equil_gt_thresh', outfigdir),'png')
+  saveas(h1,sprintf('%s/polyclust_all_equil_gt_thresh_case_%d', outfigdir,caseid),'png')
 end
 
 
