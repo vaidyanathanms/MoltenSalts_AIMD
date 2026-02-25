@@ -1,0 +1,51 @@
+datafile
+system.xyz
+trajectory_file
+traj_nvtprod-pos-1.xyz
+start_time
+60000
+end_time
+100000
+name_to_type_map
+6
+Al 1
+Cl 2
+C 3
+N 4
+H 5
+O 6
+ion_type
+1
+cion_type
+2
+compute_rdf
+10 100 8 7
+1 1
+1 2
+1 4
+1 6
+2 3
+2 4
+3 6
+box_dim
+from_file
+UREA_MRAT_13-1.cell
+compute_clust
+3.0 1
+compute_catanneigh
+1 15 3.0
+compute_bonddist
+1 1.6 80 3
+1 2
+3 6
+compute_multclust
+3
+1
+2
+6
+1 1 3.5
+1 2 2.6
+1 6 2.2
+2 2 2.5
+2 6 3.0
+6 6 0.0
