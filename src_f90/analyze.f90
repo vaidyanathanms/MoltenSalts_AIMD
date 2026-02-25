@@ -90,7 +90,7 @@ SUBROUTINE READ_ANA_INP_FILE()
      ELSEIF(dumchar == 'freqfr') THEN
 
         READ(anaread,*,iostat=ierr) freqfr
-
+        
      ELSEIF(dumchar == 'name_to_type_map') THEN
 
         READ(anaread,*,iostat=ierr) ntotatomtypes
@@ -136,16 +136,34 @@ SUBROUTINE READ_ANA_INP_FILE()
      ELSEIF(dumchar == 'compute_rdf') THEN
 
         rdfcalc_flag = 1
-        READ(anaread,*,iostat=ierr) rdffreq, rmaxbin, rdomcut,npairs
+        READ(anaread,*,iostat=ierr) rdffreq, rmaxbin, rdomcut&
+             &,nrdf_pairs
         
-        ALLOCATE(pairs_rdf(npairs,3),stat = AllocateStatus)
+        ALLOCATE(pairs_rdf(nrdf_pairs,3),stat = AllocateStatus)
         IF(AllocateStatus/=0) STOP "did not allocate pairs_rdf"
       
-        DO i = 1,npairs
+        DO i = 1,nrdf_pairs
 
            READ(anaread,*,iostat=ierr) pairs_rdf(i,1), pairs_rdf(i,2)
 
         END DO
+
+     ELSEIF(dumchar == 'compute_bonddist') THEN
+
+        blencalc_flag = 1
+        READ(anaread,*,iostat=ierr) bdfreq, bmaxbin, nbond_pairs
+        
+        ALLOCATE(pairs_bld(nbond_pairs,2),stat = AllocateStatus)
+        IF(AllocateStatus/=0) STOP "did not allocate pairs_bld"
+        ALLOCATE(bcut_arr(nbond_pairs),stat = AllocateStatus)
+        IF(AllocateStatus/=0) STOP "did not allocate bcut_arr"
+      
+        DO i = 1,nbond_pairs
+
+           READ(anaread,*,iostat=ierr) pairs_bld(i,1), pairs_bld(i,2),bcut_arr(i)
+
+        END DO
+
 
      ELSEIF(dumchar == 'compute_clust') THEN
 
@@ -238,6 +256,7 @@ SUBROUTINE DEFAULTVALUES()
   box_from_file_flag = 0
   box_type_flag = 0
   rdfcalc_flag = 0
+  blencalc_flag = 0
   clust_calc_flag = 0; clust_time_flag = 0
   ion_dynflag = 0; cion_dynflag = 0
   catan_autocfflag = 0
@@ -250,11 +269,11 @@ SUBROUTINE DEFAULTVALUES()
   ioncnt = 0; c_ioncnt = 0
 
   ! Initialize distributions and frequencies
-  rdffreq = 0
-
+  rdffreq = 0; bdfreq = 0
+  
   ! Initialzie structural quantities
-  rdomcut = 10.0;  rmaxbin = 100; rbinval = REAL(rdomcut)&
-       &/REAL(rmaxbin)
+  rdomcut = 10.0; rmaxbin = 100
+  bmaxbin = 80
   rcatan_cut = 0.0; rneigh_cut = 0.0; rclust_cut = 0.0
 
   ! Initialize structural averages
@@ -530,24 +549,6 @@ SUBROUTINE ANALYZE_TRAJECTORYFILE()
   PRINT *, "Total frames analyze ..", nfrcntr
   WRITE(logout,*) "Total frames analyze ..", nfrcntr
   WRITE(logout,*) "Last frame analyzed ..", act_time
-  
-!!$     DO jumpfr = 1,freqfr
-!!$
-!!$        READ(trajread,*)
-!!$        READ(trajread,*)        
-!!$        READ(trajread,*)
-!!$ 
-!!$        READ(trajread,*) atchk
-!!$
-!!$        DO at_cnt = 1,atchk+5
-!!$
-!!$           READ(trajread,*) 
-!!$
-!!$        END DO
-!!$
-!!$     END DO
-!!$
-!!$  END DO
 
   CLOSE(trajread)
 
@@ -715,7 +716,7 @@ SUBROUTINE STRUCT_INIT()
      rdfarray = 0.0
      rbinval = rdomcut/REAL(rmaxbin)
 
-     DO i = 1, npairs
+     DO i = 1, nrdf_pairs
 
         t1 = 0; t2 = 0
 
@@ -736,6 +737,13 @@ SUBROUTINE STRUCT_INIT()
 
   END IF
 
+  IF(blencalc_flag) THEN
+
+     bldarray = 0.0
+     
+  END IF
+     
+  
 END SUBROUTINE STRUCT_INIT
 
 !--------------------------------------------------------------------
@@ -800,6 +808,25 @@ SUBROUTINE STRUCT_MAIN(tval)
 
   END IF
 
+  IF(blencalc_flag) THEN
+
+     IF(tval == 1) THEN
+
+        PRINT *, "Checking Bond-length dist calculations ..."
+        CALL SYSTEM_CLOCK(t1,clock_rate,clock_max)
+        CALL COMPUTE_BLENDIST(tval)
+        CALL SYSTEM_CLOCK(t2,clock_rate,clock_max)
+        PRINT *, 'Elapsed real time for bond-len analysis: ',REAL(t2&
+             &-t1)/REAL(clock_rate), ' seconds'
+
+     ELSEIF(mod(tval,neighfreq) == 0) THEN
+
+        CALL COMPUTE_BLENDIST(tval)
+
+     END IF
+
+  END IF
+        
   IF(catan_neighcalc_flag) THEN
 
      IF(tval == 1) THEN
@@ -1150,14 +1177,14 @@ SUBROUTINE COMPUTE_RDF(iframe)
   rvolval = box_xl*box_yl*box_zl
   rvolavg = rvolavg + rvolval
 
-  ALLOCATE(dumrdfarray(0:rmaxbin-1,npairs),stat=AllocateStatus)
+  ALLOCATE(dumrdfarray(0:rmaxbin-1,nrdf_pairs),stat=AllocateStatus)
   IF(AllocateStatus/=0) STOP "dumrdfarray not allocated"
   dumrdfarray = 0
 
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(i,j,a1type,a2type,a1id,a2id,rval,rxval,ryval,rzval&
 !$OMP& ,ibin,paircnt,a1ref,a2ref) REDUCTION(+:dumrdfarray)
-  DO paircnt = 1,npairs
+  DO paircnt = 1,nrdf_pairs
 
      a1ref = pairs_rdf(paircnt,1); a2ref = pairs_rdf(paircnt,2)
 
@@ -1206,7 +1233,7 @@ SUBROUTINE COMPUTE_RDF(iframe)
 !$OMP END DO
 
 !$OMP DO PRIVATE(i,j)
-  DO j = 1,npairs
+  DO j = 1,nrdf_pairs
 
      DO i = 0,rmaxbin-1
 
@@ -1223,6 +1250,118 @@ SUBROUTINE COMPUTE_RDF(iframe)
   DEALLOCATE(dumrdfarray)
 
 END SUBROUTINE COMPUTE_RDF
+
+!--------------------------------------------------------------------
+
+SUBROUTINE COMPUTE_BLENDIST(iframe)
+
+  USE PARAMS_CP2K
+  IMPLICIT NONE
+
+  INTEGER, INTENT(IN) :: iframe
+  INTEGER :: i,j,a1type,a2type,ibin,a1id,a2id,paircnt,AllocateStatus
+  REAL :: rxval,ryval,rzval,rval
+  INTEGER :: a1ref,a2ref
+  INTEGER,ALLOCATABLE, DIMENSION(:,:) :: dumbldarray
+  INTEGER,ALLOCATABLE, DIMENSION(:) :: tot_bpairs
+  REAL,ALLOCATABLE, DIMENSION(:) :: bbin_arr
+    
+  ALLOCATE(dumbldarray(0:bmaxbin-1,nbond_pairs),stat=AllocateStatus)
+  IF(AllocateStatus/=0) STOP "dumbldarray not allocated"
+  dumbldarray = 0
+  ALLOCATE(tot_bpairs(nbond_pairs),stat=AllocateStatus)
+  IF(AllocateStatus/=0) STOP "tot_bpairs not allocated"
+  tot_bpairs = 0
+  ALLOCATE(bbin_arr(nbond_pairs),stat=AllocateStatus)
+  IF(AllocateStatus/=0) STOP "bbin_arr not allocated"
+  tot_bpairs = 0
+
+  bbin_arr = REAL(bcut_arr)/REAL(bmaxbin)
+  
+  
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(i,j,a1type,a2type,a1id,a2id,rval,rxval,ryval,rzval&
+!$OMP& ,ibin,paircnt,a1ref,a2ref) REDUCTION(+:dumbldarray)
+  DO paircnt = 1,nbond_pairs
+
+     a1ref = pairs_bld(paircnt,1); a2ref = pairs_bld(paircnt,2)
+
+     DO i = 1,ntotatoms
+
+        a1id   = aidvals(i,1)
+        a1type = aidvals(i,3)
+
+        DO j = 1,ntotatoms
+
+           a2id   = aidvals(j,1)
+           a2type = aidvals(j,3)
+
+           ! Remove identical IDs
+           IF(a1id == a2id .AND. a1ref == a2ref) CYCLE
+
+           IF(a1type == a1ref .AND. a2type == a2ref) THEN
+
+              rxval = rxyz_lmp(a1id,1) - rxyz_lmp(a2id,1)
+              ryval = rxyz_lmp(a1id,2) - rxyz_lmp(a2id,2)
+              rzval = rxyz_lmp(a1id,3) - rxyz_lmp(a2id,3)
+
+              rxval = rxval - box_xl*ANINT(rxval/box_xl)
+              ryval = ryval - box_yl*ANINT(ryval/box_yl)
+              rzval = rzval - box_zl*ANINT(rzval/box_zl)
+
+              rval = sqrt(rxval**2 + ryval**2 + rzval**2)
+              ibin = FLOOR(rval/REAL(bbin_arr(paircnt)))
+             
+              IF(ibin .LT. bmaxbin) THEN
+
+                 dumbldarray(ibin,paircnt) = dumbldarray(ibin&
+                      &,paircnt) + 1
+
+              END IF
+
+           END IF
+
+        END DO
+
+     END DO
+
+  END DO
+!$OMP END DO
+
+! Sum up since there is no normalization
+!$OMP DO PRIVATE(i,j) 
+
+  DO j = 1,nbond_pairs
+
+     DO i = 0,bmaxbin-1
+        
+        tot_bpairs(j) = tot_bpairs(j) + dumbldarray(i,j)
+
+     END DO
+     
+  END DO
+  
+!$OMP END DO
+  
+!$OMP DO PRIVATE(i,j)
+  DO j = 1,nbond_pairs
+
+     DO i = 0,bmaxbin-1
+
+        bldarray(i,j) = bldarray(i,j) + REAL(dumbldarray(i,j))&
+             &/REAL(tot_bpairs(j))
+
+     END DO
+
+  END DO
+!$OMP END DO
+
+!$OMP END PARALLEL
+
+  DEALLOCATE(dumbldarray)
+  DEALLOCATE(tot_bpairs)
+  
+END SUBROUTINE COMPUTE_BLENDIST
 
 !--------------------------------------------------------------------
 
@@ -1998,6 +2137,11 @@ SUBROUTINE ALLOUTPUTS()
      CALL OUTPUT_ALLRDF()
   END IF
 
+  IF(blencalc_flag) THEN
+     PRINT *, "Writing average-bond lengths .."
+     CALL OUTPUT_BLENS()
+  END IF
+  
   IF(catan_neighcalc_flag) THEN
      PRINT *, "Writing neighbors .."
      CALL OUTPUT_ALLNEIGHBORS()
@@ -2062,7 +2206,7 @@ SUBROUTINE OUTPUT_POLY_CLUSTERS()
   INTEGER :: atom_index,index_remain
   
   dum_fname = "polyclust_"//trim(adjustl(traj_fname))
-
+  
   OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
        &,status="replace",iostat=ierr)
   
@@ -2174,7 +2318,7 @@ SUBROUTINE OUTPUT_ALLRDF()
 
         WRITE(dumwrite,'(A,8X)',advance="no") "r"
 
-        DO j = 1,npairs
+        DO j = 1,nrdf_pairs
 
            WRITE(dumwrite,'(I0,A1,I0,8X)',advance="no") pairs_rdf(j&
                 &,1),'-',pairs_rdf(j,2)
@@ -2192,7 +2336,7 @@ SUBROUTINE OUTPUT_ALLRDF()
            WRITE(dumwrite,'(F16.5,2X)',advance="no") 0.5*rbinval&
                 &*(REAL(2*i+1))
 
-           DO j = 1,npairs
+           DO j = 1,nrdf_pairs
 
               WRITE(dumwrite,'(F16.9,1X)',advance="no")rdfarray(i,j)&
                &/(rdffrnorm*nideal)
@@ -2210,6 +2354,63 @@ SUBROUTINE OUTPUT_ALLRDF()
   END IF
 
 END SUBROUTINE OUTPUT_ALLRDF
+
+!--------------------------------------------------------------------
+
+SUBROUTINE OUTPUT_BLENS()
+
+  USE PARAMS_CP2K
+  IMPLICIT NONE
+
+  INTEGER :: i,j,ierr
+  REAL :: bdffrnorm,bbinval
+
+  IF(rdfcalc_flag) THEN
+
+     bdffrnorm = INT(nfrcntr/bdfreq)
+
+     IF(blencalc_flag) THEN
+        dum_fname = "blen_"//trim(adjustl(traj_fname))
+        OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
+             &,status="replace",iostat=ierr)
+
+        IF(ierr /= 0) THEN
+           PRINT *, "Could not open", trim(dum_fname)
+        END IF
+
+        WRITE(dumwrite,'(A5,4X)',advance="no") "    r"
+
+        DO j = 1,nbond_pairs
+
+           WRITE(dumwrite,'(I0,A1,I0,8X)',advance="no") pairs_bld(j&
+                &,1),'-',pairs_bld(j,2)
+           WRITE(dumwrite,'(A,4X)',advance="no") "r"
+
+        END DO
+
+        WRITE(dumwrite,*)
+
+        DO i = 0,bmaxbin-1
+
+           DO j = 1,nbond_pairs
+
+              bbinval = REAL(bcut_arr(j))/REAL(bmaxbin)
+              WRITE(dumwrite,'(F16.8,2X,F16.9,1X)',advance="no") 0.5&
+                   &*bbinval*(REAL(2*i+1)), bldarray(i,j)/(bdffrnorm)
+              
+           END DO
+
+           WRITE(dumwrite,*)
+
+        END DO
+
+        CLOSE(dumwrite)
+
+     END IF
+
+  END IF
+
+END SUBROUTINE OUTPUT_BLENS
 
 !--------------------------------------------------------------------
 
@@ -2263,13 +2464,22 @@ SUBROUTINE ALLOCATE_ANALYSIS_ARRAYS()
   ! Allocate for statics
 
   IF(rdfcalc_flag) THEN
-     ALLOCATE(rdfarray(0:rmaxbin-1,npairs),stat = AllocateStatus)
+     ALLOCATE(rdfarray(0:rmaxbin-1,nrdf_pairs),stat = AllocateStatus)
      IF(AllocateStatus/=0) STOP "did not allocate rdfarray"
   ELSE
      ALLOCATE(rdfarray(1,1),stat = AllocateStatus)
      DEALLOCATE(rdfarray)
   END IF
 
+  IF(blencalc_flag) THEN
+     ALLOCATE(bldarray(0:bmaxbin-1,nbond_pairs),stat=AllocateStatus)
+     IF(AllocateStatus/=0) STOP "did not allocate bldarray"
+  ELSE
+     ALLOCATE(bldarray(1,1),stat = AllocateStatus)
+     DEALLOCATE(bldarray)
+     ALLOCATE(bcut_arr(1),stat = AllocateStatus)
+     DEALLOCATE(bcut_arr)
+  END IF
   
   IF(catan_neighcalc_flag) THEN
      ALLOCATE(cat_an_neighavg(1:maxneighsize),stat = AllocateStatus)
