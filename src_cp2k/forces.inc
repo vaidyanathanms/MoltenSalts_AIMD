@@ -46,6 +46,11 @@
     ! Setting up the Self Consistent Field calculation parameters
     ! the SCF section is inserted using an include file:
     @INCLUDE scf.inc
+    ! Compute dipole moments if necessary
+
+    @IF ( ${RTYPE} == MD )
+      @INCLUDE dipole.inc
+    @ENDIF
 
     ! Setting up the exchange-correlation calculation
     &XC
