@@ -66,7 +66,7 @@ MODULE PARAMS_CP2K
   INTEGER,ALLOCATABLE,DIMENSION(:,:) :: allionids,multionids
   INTEGER,ALLOCATABLE,DIMENSION(:,:) :: pairs_rdf, pairs_bld
   INTEGER,ALLOCATABLE,DIMENSION(:,:) :: mclust_type_arr
-  REAL*8,ALLOCATABLE,DIMENSION(:,:)  :: rdfarray,bldarray
+  REAL*8,ALLOCATABLE,DIMENSION(:,:)  :: rdfarray,bldarray,nrdfarray
   REAL*8,ALLOCATABLE,DIMENSION(:,:)  :: mclust_rcut_arr
   REAL*8,ALLOCATABLE,DIMENSION(:) :: bcut_arr
   REAL*8,ALLOCATABLE,DIMENSION(:) :: clust_avg, spec_avg

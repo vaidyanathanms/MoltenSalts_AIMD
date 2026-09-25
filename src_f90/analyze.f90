@@ -139,9 +139,10 @@ SUBROUTINE READ_ANA_INP_FILE()
         READ(anaread,*,iostat=ierr) rdffreq, rmaxbin, rdomcut&
              &,nrdf_pairs
         
-        ALLOCATE(pairs_rdf(nrdf_pairs,3),stat = AllocateStatus)
+        ALLOCATE(pairs_rdf(nrdf_pairs,4),stat = AllocateStatus)
         IF(AllocateStatus/=0) STOP "did not allocate pairs_rdf"
-      
+        pairs_rdf = 0
+        
         DO i = 1,nrdf_pairs
 
            READ(anaread,*,iostat=ierr) pairs_rdf(i,1), pairs_rdf(i,2)
@@ -713,7 +714,7 @@ SUBROUTINE STRUCT_INIT()
 
   IF(rdfcalc_flag) THEN
 
-     rdfarray = 0.0
+     rdfarray = 0.0; nrdfarray = 0.0
      rbinval = rdomcut/REAL(rmaxbin)
 
      DO i = 1, nrdf_pairs
@@ -732,7 +733,8 @@ SUBROUTINE STRUCT_INIT()
         ELSE
            pairs_rdf(i,3) = t1*t2 !g_AB(r)
         END IF
-
+        pairs_rdf(i,4) = t1
+        
      END DO
 
   END IF
@@ -1173,7 +1175,8 @@ SUBROUTINE COMPUTE_RDF(iframe)
   REAL :: rxval,ryval,rzval,rval
   INTEGER :: a1ref,a2ref
   INTEGER,ALLOCATABLE, DIMENSION(:,:) :: dumrdfarray
-
+  
+  
   rvolval = box_xl*box_yl*box_zl
   rvolavg = rvolavg + rvolval
 
@@ -1239,6 +1242,9 @@ SUBROUTINE COMPUTE_RDF(iframe)
 
         rdfarray(i,j) = rdfarray(i,j) + REAL(dumrdfarray(i,j))&
              &*rvolval/(REAL(pairs_rdf(j,3)))
+
+        nrdfarray(i,j) = nrdfarray(i,j) + REAL(dumrdfarray(i,j))&
+             &/(REAL(pairs_rdf(j,4)))
 
      END DO
 
@@ -2300,57 +2306,97 @@ SUBROUTINE OUTPUT_ALLRDF()
   INTEGER :: i,j,ierr
   REAL, PARAMETER :: vconst = 4.0*pival/3.0
   REAL :: rlower,rupper,nideal,rdffrnorm,acrnorm
+  REAL,DIMENSION(0:rmaxbin-1,nrdf_pairs) :: nrsum
 
+  nrsum = 0.0
+  rdffrnorm = INT(nfrcntr/rdffreq)
+  rvolavg = rvolavg/REAL(rdffrnorm)
+  PRINT *, "Average volume of box", rvolavg
+  
   IF(rdfcalc_flag) THEN
+     dum_fname = "rdf_"//trim(adjustl(traj_fname))
+     OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
+          &,status="replace",iostat=ierr)
 
-     rdffrnorm = INT(nfrcntr/rdffreq)
-     rvolavg = rvolavg/REAL(rdffrnorm)
-     PRINT *, "Average volume of box", rvolavg
+     IF(ierr /= 0) THEN
+        PRINT *, "Could not open", trim(dum_fname)
+     END IF
+     
+     WRITE(dumwrite,'(A,8X)',advance="no") "r"
+     
+     DO j = 1,nrdf_pairs
+        
+        WRITE(dumwrite,'(I0,A1,I0,8X)',advance="no") pairs_rdf(j&
+             &,1),'-',pairs_rdf(j,2)
+        
+     END DO
+     
+     WRITE(dumwrite,*)
+     
+     DO i = 0,rmaxbin-1
+        
+        rlower = real(i)*rbinval
+        rupper = rlower + rbinval
+        nideal = vconst*(rupper**3 - rlower**3)
+        
+        WRITE(dumwrite,'(F16.5,2X)',advance="no") 0.5*rbinval&
+             &*(REAL(2*i+1))
+        
+        DO j = 1,nrdf_pairs
+           
+           WRITE(dumwrite,'(F16.9,1X)',advance="no")rdfarray(i,j)&
+                &/(rdffrnorm*nideal)
+           
+        END DO
+        
+        WRITE(dumwrite,*)
+        
+     END DO
+     
+     CLOSE(dumwrite)
+     
+     
+     dum_fname = "nrdf_"//trim(adjustl(traj_fname))
+     OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
+          &,status="replace",iostat=ierr)
+     
+     IF(ierr /= 0) THEN
+        PRINT *, "Could not open", trim(dum_fname)
+     END IF
+     
+     WRITE(dumwrite,'(A,8X)',advance="no") "r"
+     
+     DO j = 1,nrdf_pairs
+        
+        WRITE(dumwrite,'(I0,A1,I0,8X)',advance="no") pairs_rdf(j&
+             &,1),'-',pairs_rdf(j,2)
+        
+     END DO
+     
+     WRITE(dumwrite,*)
+     
+     nrdfarray = nrdfarray/REAL(rdffrnorm)
 
-     IF(rdfcalc_flag) THEN
-        dum_fname = "rdf_"//trim(adjustl(traj_fname))
-        OPEN(unit = dumwrite,file =trim(dum_fname),action="write"&
-             &,status="replace",iostat=ierr)
-
-        IF(ierr /= 0) THEN
-           PRINT *, "Could not open", trim(dum_fname)
-        END IF
-
-        WRITE(dumwrite,'(A,8X)',advance="no") "r"
-
+     DO i = 0,rmaxbin-1
+        
+        WRITE(dumwrite,'(F16.5,2X)',advance="no") 0.5*rbinval&
+             &*(REAL(2*i+1))
+        
         DO j = 1,nrdf_pairs
 
-           WRITE(dumwrite,'(I0,A1,I0,8X)',advance="no") pairs_rdf(j&
-                &,1),'-',pairs_rdf(j,2)
+           WRITE(dumwrite,'(F16.9,1X)',advance="no") nrsum(i,j) + 0.5&
+                &*(nrdfarray(i,j) + nrdfarray(i+1,j))
+           nrsum(i+1,j) = nrsum(i,j) + 0.5*(nrdfarray(i,j) +&
+                & nrdfarray(i+1,j))
 
         END DO
-
+        
         WRITE(dumwrite,*)
-
-        DO i = 0,rmaxbin-1
-
-           rlower = real(i)*rbinval
-           rupper = rlower + rbinval
-           nideal = vconst*(rupper**3 - rlower**3)
-
-           WRITE(dumwrite,'(F16.5,2X)',advance="no") 0.5*rbinval&
-                &*(REAL(2*i+1))
-
-           DO j = 1,nrdf_pairs
-
-              WRITE(dumwrite,'(F16.9,1X)',advance="no")rdfarray(i,j)&
-               &/(rdffrnorm*nideal)
-
-           END DO
-
-           WRITE(dumwrite,*)
-
-        END DO
-
-        CLOSE(dumwrite)
-
-     END IF
-
+        
+     END DO
+     
+     CLOSE(dumwrite)
+     
   END IF
 
 END SUBROUTINE OUTPUT_ALLRDF
@@ -2378,13 +2424,12 @@ SUBROUTINE OUTPUT_BLENS()
            PRINT *, "Could not open", trim(dum_fname)
         END IF
 
-        WRITE(dumwrite,'(A5,4X)',advance="no") "    r"
 
         DO j = 1,nbond_pairs
 
+           WRITE(dumwrite,'(A5,4X)',advance="no") "    r"
            WRITE(dumwrite,'(I0,A1,I0,8X)',advance="no") pairs_bld(j&
                 &,1),'-',pairs_bld(j,2)
-           WRITE(dumwrite,'(A,4X)',advance="no") "r"
 
         END DO
 
@@ -2466,9 +2511,13 @@ SUBROUTINE ALLOCATE_ANALYSIS_ARRAYS()
   IF(rdfcalc_flag) THEN
      ALLOCATE(rdfarray(0:rmaxbin-1,nrdf_pairs),stat = AllocateStatus)
      IF(AllocateStatus/=0) STOP "did not allocate rdfarray"
+     ALLOCATE(nrdfarray(0:rmaxbin-1,nrdf_pairs),stat = AllocateStatus)
+     IF(AllocateStatus/=0) STOP "did not allocate nrdfarray"
   ELSE
      ALLOCATE(rdfarray(1,1),stat = AllocateStatus)
      DEALLOCATE(rdfarray)
+     ALLOCATE(nrdfarray(1,1),stat = AllocateStatus)
+     DEALLOCATE(nrdfarray)
   END IF
 
   IF(blencalc_flag) THEN
@@ -2547,7 +2596,8 @@ SUBROUTINE DEALLOCATE_ARRAYS()
 
   !Statics calculations arrays
   IF(rdfcalc_flag) DEALLOCATE(rdfarray)
-
+  IF(rdfcalc_flag) DEALLOCATE(nrdfarray)
+  
   !Dynamic calculations arrays
 !!$  IF(ion_dynflag) THEN
 !!$     DEALLOCATE(itrx_lmp)
